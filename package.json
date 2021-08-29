@@ -1,0 +1,33 @@
+{
+	"name": "maplibre-preload",
+	"version": "0.0.1",
+	"private": true,
+	"description": "Tiles preloader to smoothen the animations in MapLibre",
+	"author": {
+		"name": "Abel Vázquez Montoro",
+		"url": "https://abelvm.github.io"
+	},
+	"license": "MIT",
+	"repository": {
+		"type": "git",
+		"url": "git://github.com/AbelVM/maplibre-preload.git"
+	},
+	"type": "module",
+	"source": "./src/index.js",
+	"main": "./dist/maplibre-preload.cjs",
+	"module": "./dist/maplibre-preload.module.js",
+	"exports": "./dist/maplibre-preload.modern.js",
+	"scripts": {
+		"build": "microbundle --external none",
+		"dev": "microbundle watch --external none"
+	},
+	"dependencies": {
+		"@mapbox/geo-viewport": "^0.4.1",
+		"@mapbox/point-geometry": "^0.1.0",
+		"@mapbox/tilebelt": "^1.0.2",
+		"error-stack-parser": "^2.0.6"
+	},
+	"devDependencies": {
+		"microbundle": "^0.13.3"
+	}
+}
