@@ -5,6 +5,7 @@ import ErrorStackParser from 'error-stack-parser';
 import Point from '@mapbox/point-geometry';
 const _lib = globalThis.maplibregl;
 
+// run only in the main thread
 if (_lib !== undefined) {
     /*
 
@@ -47,13 +48,11 @@ if (_lib !== undefined) {
         this.flyTo(o);
     };
     _lib.Map.prototype.cachedFlyTo = cachedflyto;
-
     /*
     
         Logic
     
     */
-
     // Gets the needed information related to the Map object
     const _context = function (options) {
         // Only the tiled sources are needed
@@ -62,9 +61,10 @@ if (_lib !== undefined) {
             .map(s => this.getSource(s[0]).tiles[0]);
         const _dimensions = [this.getCanvas().width, this.getCanvas().height];
         const _tilesize = this.transform.tileSize;
+        const sc = this.getCenter();
         let zmin = Math.min(this.getZoom(), options.zoom);
         if (options.type == 'fly') {
-            // Extracted from https://www.win.tue.nl/~vanwijk/zoompan.pdf
+            // From the flyTo logic itself
             const offsetAsPoint = Point.convert(options.offset || [0, 0]);
             let pointAtOffset = this.transform.centerPoint.add(offsetAsPoint);
             const locationAtOffset = this.transform.pointLocation(pointAtOffset);
@@ -75,20 +75,20 @@ if (_lib !== undefined) {
             const rho = options.curve || 1.42;
             const u1 = delta.mag();
             const wmax = 2 * rho * rho * u1;
-            const zd = Math.floor(this.getZoom() + this.transform.scaleZoom(1 / wmax));
-            zmin = Math.max(Math.min(zmin + zd, options.minZoom || zmin + zd), 0);
+            const zd = this.getZoom() + this.transform.scaleZoom(1 / wmax);
+            zmin = Math.floor(Math.max(Math.min(zmin + zd, options.minZoom || zmin + zd), 0));
         }
         return {
             sources: _sources,
             dimensions: _dimensions,
             tilesize: _tilesize,
-            startCenter: this.getCenter(),
+            startCenter: [sc.lng, sc.lat],
             startZoom: this.getZoom(),
             zmin: zmin
         };
     };
     _lib.Map.prototype._context = _context;
-
+    // build and manage the preloader worker
     const precache_run = function (o) {
         if (window === self && this.precache_worker == undefined) {
             // the actual absolute path of the running script
@@ -97,23 +97,39 @@ if (_lib !== undefined) {
             // build inline worker
             const target = `
             importScripts('${_imported}');
+            let controller;
+            let signal;
             onmessage = function (o){
+                if (controller !== undefined && controller.signal !== undefined && !controller.signal.aborted){
+                    controller.abort();               
+                }
+                if (o.data.abort){
+                    postMessage({t: Date.now(), e: true});
+                    return;
+                }
+                controller = new AbortController();
+                signal = controller.signal;     
                 let _func = ${precache_function.toString()};
                 _func.apply(null, [o.data]);
             }`;
             const mission = URL.createObjectURL(new Blob([target], { 'type': 'text/javascript' }));
             this.precache_worker = new Worker(mission);
-            this.precache_worker.onmessage = e => { this.precache_worker.time = e.data; };
+            this.precache_worker.onmessage = e => { 
+                this.precache_worker.time1 = e.data.t; 
+                console.log(`Precaching time: ${this.precache_worker.time1 -this.precache_worker.time0}ms`);
+            };
         }
         // Some debugging info
-        delete this.precache_worker.time;
+        delete this.precache_worker.time1;
         this.once('moveend', e => {
-            if (this.precache_worker.time == undefined) {
-                console.log(`🔴 Movement has finished before preloading`);
+            if (this.precache_worker.time1 == undefined) {
+                this.precache_worker.postMessage({ abort: true });
+                console.log(`🔶 Movement has finished before preloading`);
             } else {
-                console.log(`Movement ends ${(this.precache_worker.time) ? Date.now() - this.precache_worker.time : undefined} ms after precaching`);
+                console.log(`🔚 Movement ends ${(this.precache_worker.time1) ? Date.now() - this.precache_worker.time1 : undefined} ms after precaching`);
             }
         });
+        this.precache_worker.time0 = Date.now();
         this.precache_worker.postMessage(o);
     };
     _lib.Map.prototype._precache = precache_run;
@@ -125,86 +141,63 @@ const precache_function = o => {
         TODO: get the final pitch and bearing into the equations
         https://chriswhong.github.io/mapboxgl-view-bounds/#12.7/40.7852/-73.9463/-21.8/33
     */
-
-    // Final scenario
+    // Final scenario bbox
     const finalbbox = bounds(o.center, o.zoom, o.dimensions, o.tilesize);
-    const finaltile = tilebelt.bboxToTile(finalbbox);
-
-    //transition
+    // transition bbox
     const transbbox = [
         Math.min(o.startCenter[0], o.center[0]),
         Math.min(o.startCenter[1], o.center[1]),
         Math.max(o.startCenter[0], o.center[0]),
         Math.max(o.startCenter[1], o.center[1]),
     ];
-    const transtile = tilebelt.bboxToTile(transbbox);
-
-    // Check whether a tile intersects a boundingbox
-    const isVisible = (t, b) => {
-        const
-            tbb = tilebelt.tileToBBOX(t),
-            tf = [
-                { x: tbb[0], y: tbb[1] },
-                { x: tbb[0], y: tbb[3] },
-                { x: tbb[2], y: tbb[1] },
-                { x: tbb[2], y: tbb[3] }
-            ],
-            bf = [
-                { x: b[0], y: b[1] },
-                { x: b[0], y: b[3] },
-                { x: b[2], y: b[1] },
-                { x: b[2], y: b[3] }
-            ],
-            contains = (box, p) => {
-                if (p.x < box[0] || p.x > box[2] || p.y < box[1] || p.y > box[3]) {
-                    return false;
-                } else {
-                    return true;
-                }
-            };
-        for (let i = 0; i < 4; i++) {
-            if (contains(b, tf[i])) return true;
+    // all the tiles in a bounding box for a given zoom level
+    // including a buffer of 1 tile
+    const bboxtiles = (bbox, zoom) => {
+        const sw = tilebelt.pointToTile(bbox[0], bbox[1], zoom);
+        const ne = tilebelt.pointToTile(bbox[2], bbox[3], zoom);
+        const result = [];
+        for (let x = sw[0] - 1 ; x < ne[0] + 2; x++) {
+            for (let y = ne[1] - 1; y < sw[1] + 2; y++) {
+                result.push([x, y, zoom]);
+            }
         }
-        for (let i = 0; i < 4; i++) {
-            if (contains(tbb, bf[i])) return true;
-        }
-        return false;
+        return result;
     };
-
-    // Get all the visible children tiles of a tile at a given zoom level
-    const getChildrenZ = (t, z, b) => {
-        if (Math.floor(z) <= t[2]) return [t];
-        let
-            tt = tilebelt.getChildren(t).filter(a => isVisible(a, b));
-        for (let i = t[2] + 1; i < Math.floor(z + 1); i++) {
-            let tt2 = [];
-            tt.forEach(b => tt2.push(...tilebelt.getChildren(b)));
-            tt = [...tt2.filter(a => isVisible(a, b))];
-        }
-        return tt;
-    };
-
-    // Build the tiles pyramid
+    // Build the tiles pyramid for final scenario
+    let tz;
     let tiles = [];
-    for (let z = o.zmin; z < o.zoom + 1; z++) {
-        tiles.push(...getChildrenZ(transtile, z, transbbox));
-        tiles.push(...getChildrenZ(finaltile, z, finalbbox));
+    for (let z = o.zoom ; z > o.zmin -1; z--) {
+        const tt = bboxtiles(finalbbox, z);
+        tiles.push(...tt);
+        tz = tt.length;
     }
+    // Get the tiles for the transition pan
+    tiles.push(...bboxtiles(transbbox, o.zmin));
+    // Simple trick to fix eventual miscalculations of zmin fof flyTo
+    if(o.type == 'fly'){
+        tiles.push(...bboxtiles(transbbox, o.zmin - 1));
+        tiles.push(...bboxtiles(transbbox, o.zmin + 1));
+    }
+    // Remove duplicates
     tiles = [...new Set(tiles)];
     // From tiles [x,y,z] to URLs 
     urls = tiles.map(t => {
         return o.sources.map(s => {
             return s.replace('{x}', t[0])
-                .replace('{y}', t[1])
-                .replace('{z}', t[2]);
-        }).flat();
-    });
-
+                    .replace('{y}', t[1])
+                    .replace('{z}', t[2]);
+        });
+    }).flat();
     // Fetch all
-    Promise.all(urls.map(u => fetch(u))).then(d => {
-        postMessage(Date.now());
-        console.log(`Prefetched ${urls.length} tiles at zoom levels [${o.zmin} - ${o.zoom}]`);
-    });
+    Promise.all(urls.map(u => fetch(u, { signal })))
+        .then(d => {
+            console.log(`Estimated gain: ${Math.round(900 * tz / 6)}ms`);
+            console.log(`Prefetched ${urls.length} tiles at zoom levels [${o.zmin} - ${o.zoom}]`);
+            postMessage({t: Date.now(), e: false});
+        })
+        .catch(e => {
+            if (e.name !== 'AbortError') console.log('🔴 Precache error');
+        });
 };
 
 // To be used with importScripts
