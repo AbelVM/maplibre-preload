@@ -6,14 +6,15 @@ A tiny (5.53 kB gziped) zero-configuration plugin for preloading tiles and smoot
 
 It started [here](https://github.com/maplibre/maplibre-gl-js/issues/116), a conversation about the need of precaching tiles when the user start a movement, and as one the reference mentioned there was [MapWorkBox](https://github.com/AbelVM/mapworkbox), a little PoC I built for testing preemptive tiles caching using `Service Workers`.
 
-So, the idea is to smooth the rendering of the animation frames of the camera and final scenario when using targeted movements functions (`panTo`, `zoomTo`, `jumpTo`, `easeTo` and `flyTo`). The standard applications request new tiles as they change the camera view during the animation, and maybe batch-preloading the tiles of the final scenarion, the final animation transition might look way better.
+So, the idea is to smooth the rendering of the animation frames of the camera and final scenario when using targeted movements map methods (`panTo`, `zoomTo`, `jumpTo`, `easeTo` and `flyTo`). The standard applications request new tiles as they change the camera view during the animation, and maybe batch-preloading the tiles of the final scenarion, the final animation transition might look way better.
+
 ## How
 This little pluging make use of inline `webworkers` to preload the tiles, so it is not run in the main thread. As of today, this plugin offers the next features:
 
 * Full final scenario preload
 * Partial inbetween animation preload
 
-It adds precached functions to the old ones:
+It adds precached map methods to the old ones:
 
 * **cachedPanTo**
 * **cachedZoomTo**
@@ -21,11 +22,21 @@ It adds precached functions to the old ones:
 * **cachedEaseTo**
 * **cachedFlyTo** 
 
-With the same signature than the original functions. 
+With the same signature than the original methods, but the `run` flag (boolean, default `false`) to trigger the original methods or just preload the tiles for future use.
 
+### Changelog
+
+* **v0.0.2**
+  * [Fix] Return the map object in the `cached__To` methods to keep the original output
+  * [Fix] Use the [Bresenham algorithm](https://en.wikipedia.org/wiki/Bresenham%27s_line_algorithm) to preload only the tiles in the start -> end path instead of all the tiles in the bounding box defined by those two points
+  * [Feature] Add a `run` flag to allow preloading with/without running the actual `___To` map methods. Intended enable the preload of the movement when we can expect the animation later (v.g.: preload when hover a button, flyTo when clicking)
+  * [Feature] Hide log messages behind a `debug` flag (boolean, default `false`)
+* **v0.0.1** 
+  * Initial release
 ### To Do
 
 * Add `bearing` and `pitch` logic.
+* Improve the management of zoom levels while the animation, as it is not a constant `zmin` value
 
 ### How to use
 

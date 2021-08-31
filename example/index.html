@@ -57,7 +57,9 @@
                     40.41668 + (Math.random() - 0.5) * 5
                 ],
                 zoom: 11 + Math.round(Math.random() * 5),
-                essential: true // this animation is considered essential with respect to prefers-reduced-motion
+                essential: true,
+                run: true, // to actually run the flyTo method
+                debug: true
             });
         });
     </script>
