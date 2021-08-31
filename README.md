@@ -29,7 +29,7 @@ With the same signature than the original methods, but the `run` flag (boolean, 
 * **v0.0.2**
   * [Fix] Return the map object in the `cached__To` methods to keep the original output
   * [Fix] Use the [Bresenham algorithm](https://en.wikipedia.org/wiki/Bresenham%27s_line_algorithm) to preload only the tiles in the start -> end path instead of all the tiles in the bounding box defined by those two points
-  * [Feature] Add a `run` flag to allow preloading with/without running the actual `___To` map methods. Intended enable the preload of the movement when we can expect the animation later (v.g.: preload when hover a button, flyTo when clicking)
+  * [Feature] Add a `run` flag to allow preloading with/without running the actual `___To` map methods. Intended to enable the preload of the movement when we can expect the animation later (v.g.: preload when hover a button, flyTo when clicking)
   * [Feature] Hide log messages behind a `debug` flag (boolean, default `false`)
 * **v0.0.1** 
   * Initial release
