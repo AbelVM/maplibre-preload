@@ -78,7 +78,6 @@ if (_lib !== undefined) {
             // From the flyTo logic itself
             const offsetAsPoint = Point.convert(options.offset || [0, 0]);
             let pointAtOffset = this.transform.centerPoint.add(offsetAsPoint);
-            debugger;
             const
                 locationAtOffset = this.transform.screenPointToLocation(pointAtOffset),
                 center = new _lib.LngLat(...options.center);
