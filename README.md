@@ -23,9 +23,13 @@ It adds precached map methods to the old ones:
 * **cachedFlyTo** 
 
 With the same signature than the original methods, but the `run` flag (boolean, default `false`) to trigger the original methods or just preload the tiles for future use.
-
+m
 ### Changelog
 
+* **v0.0.3**
+  * [Feature] Upgraded to work with MapLibre 5.6.0
+  * [Feature] Updated dependencies
+  * [Feature] Working example as gh-page
 * **v0.0.2**
   * [Fix] Return the map object in the `cached__To` methods to keep the original output
   * [Fix] Use the [Bresenham algorithm](https://en.wikipedia.org/wiki/Bresenham%27s_line_algorithm) to preload only the tiles in the start -> end path instead of all the tiles in the bounding box defined by those two points

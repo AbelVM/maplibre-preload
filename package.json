@@ -1,6 +1,6 @@
 {
 	"name": "maplibre-preload",
-	"version": "0.0.2",
+	"version": "0.0.3",
 	"private": true,
 	"description": "Tiles preloader to smoothen the animations in MapLibre",
 	"author": {
@@ -18,7 +18,7 @@
 	"module": "./dist/maplibre-preload.module.js",
 	"exports": "./dist/maplibre-preload.modern.js",
 	"scripts": {
-		"build": "microbundle --external none",
+		"build": "microbundle --external none && cp ./dist/maplibre-preload.modern.js ./example/maplibre-preload.js",
 		"dev": "microbundle watch --external none"
 	},
 	"dependencies": {

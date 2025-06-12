@@ -55,29 +55,44 @@ if (_lib !== undefined) {
     */
     // Gets the needed information related to the Map object
     const _context = function (options) {
-        // Only the tiled sources are needed
-        const _sources = Object.entries(this.getStyle().sources)
-            .filter(s => ['vector', 'raster'].indexOf(s[1].type) > -1 && (s[1].url !== undefined || s[1].tiles !== undefined))
-            .map(s => this.getSource(s[0]).tiles[0]);
-        const _dimensions = [this.getCanvas().width, this.getCanvas().height];
-        const _tilesize = this.transform.tileSize;
-        const sc = this.getCenter();
+
+        const
+            _sources = Object.entries(this.getStyle().sources) // Only the tiled sources are cached
+                .filter(s => ['vector', 'raster'].indexOf(s[1].type) > -1 && (s[1].url !== undefined || s[1].tiles !== undefined))
+                .map(s => this.getSource(s[0]).tiles[0]),
+            _dimensions = [this.getCanvas().width, this.getCanvas().height],
+            _tilesize = this.transform.tileSize,
+            sc = this.getCenter(),
+            _normalizeCenter = c => {
+                const tr = this.transform;
+                if (!tr.renderWorldCopies || tr.lngRange) return;
+                const delta = c.lng - tr.center.lng;
+                c.lng +=
+                    delta > 180 ? -360 :
+                        delta < -180 ? 360 : 0;
+            };
+
         let zmin = Math.min(this.getZoom(), options.zoom);
+
         if (options.type == 'fly') {
             // From the flyTo logic itself
             const offsetAsPoint = Point.convert(options.offset || [0, 0]);
             let pointAtOffset = this.transform.centerPoint.add(offsetAsPoint);
-            const locationAtOffset = this.transform.pointLocation(pointAtOffset);
-            const center = new _lib.LngLat(...options.center);
-            this._normalizeCenter(center);
-            const from = this.transform.project(locationAtOffset);
-            const delta = this.transform.project(center).sub(from);
-            const rho = options.curve || 1.42;
-            const u1 = delta.mag();
-            const wmax = 2 * rho * rho * u1;
-            const zd = this.getZoom() + this.transform.scaleZoom(1 / wmax);
+            debugger;
+            const
+                locationAtOffset = this.transform.screenPointToLocation(pointAtOffset),
+                center = new _lib.LngLat(...options.center);
+            _normalizeCenter(center);
+            const
+                from = this.transform.locationToScreenPoint(locationAtOffset),
+                delta = this.transform.locationToScreenPoint(center).sub(from),
+                rho = options.curve || 1.42,
+                u1 = delta.mag(),
+                wmax = 2 * rho * rho * u1,
+                zd = this.getZoom() + (Math.log(1 / wmax) / Math.LN2); // scaleZoom
             zmin = Math.floor(Math.max(Math.min(zmin + zd, options.minZoom || zmin + zd), 0));
         }
+
         return {
             sources: _sources,
             dimensions: _dimensions,
@@ -103,7 +118,7 @@ if (_lib !== undefined) {
             let signal;
             onmessage = function (o){
                 if (controller !== undefined && controller.signal !== undefined && !controller.signal.aborted){
-                    controller.abort();               
+                    controller.abort();
                 }
                 if (o.data.abort){
                     postMessage({t: Date.now(), e: true});
@@ -160,13 +175,15 @@ const precache_function = o => {
 
     // Bresenham algorithm for retrieving only the diagonal tiles + siblings
     const diagonaltiles = (p1, p2, zoom) => {
-        const [x0, y0] = tilebelt.pointToTile(p1[0], p1[1], zoom);
-        const [x1, y1] = tilebelt.pointToTile(p2[0], p2[1], zoom);
-        const [dx, dy] = [Math.abs(x1 - x0), Math.abs(y1 - y0)];
-        const [sx, sy] = [x0 < x1 ? 1 : -1, y0 < y1 ? 1 : -1];
-        let err = (dx > dy ? dx : -dy) / 2;
-        let [x, y] = [x0, y0];
-        let tt = [];
+        const 
+            [x0, y0] = tilebelt.pointToTile(p1[0], p1[1], zoom),
+            [x1, y1] = tilebelt.pointToTile(p2[0], p2[1], zoom),
+            [dx, dy] = [Math.abs(x1 - x0), Math.abs(y1 - y0)],
+            [sx, sy] = [x0 < x1 ? 1 : -1, y0 < y1 ? 1 : -1];
+        let 
+            err = (dx > dy ? dx : -dy) / 2,
+            [x, y] = [x0, y0],
+            tt = [];
         while (x !== x1 || y !== y1) {
             tt.push([x, y, zoom], ...tilebelt.getSiblings([x, y, zoom]));
             let e2 = err;
