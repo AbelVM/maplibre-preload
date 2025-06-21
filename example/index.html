@@ -3,10 +3,10 @@
 
 <head>
     <meta charset="utf-8">
-    <title>(precached) Fly</title>
+    <title>MapLibre-preload 1.0.0</title>
     <meta name="viewport" content="initial-scale=1,maximum-scale=1,user-scalable=no">
     <script src='https://unpkg.com/maplibre-gl@5.6.0/dist/maplibre-gl.js'></script>
-    <script type="module" src='./maplibre-preload.js'></script>
+    <script src='../src/maplibre-preload.js'></script>
     <link href='https://unpkg.com/maplibre-gl@5.6.0/dist/maplibre-gl.css' rel='stylesheet' />
     <style>
         body {
@@ -38,28 +38,40 @@
             text-align: center;
             color: #fff;
             background: #ee8a65;
+            cursor: pointer;
         }
     </style>
     <div id="map"></div>
     <br>
     <button id="fly">precached Fly</button>
     <script>
+
         const map = new maplibregl.Map({
             container: 'map',
-            style: 'https://api.maptiler.com/maps/streets/style.json?key=U33azeDZH5GleYqPZQ98',
+            style: 'https://tiles.openfreemap.org/styles/liberty',
             center: [-3.703793, 40.416687],
             zoom: 14,
         });
+
+        map.on('load', () => {
+            new MaplibrePreload(map, {
+                progressCallback: ({ loaded, total, failed }) => {
+                    console.log(`Preloading tiles: ${loaded}/${total} loaded, ${failed} failed`);
+                },
+                burstLimit: 250
+            });
+        });
+
         document.getElementById('fly').addEventListener('click', () => {
-            map.cachedFlyTo({
+            map.flyTo({
                 center: [
                     -3.703793 + (Math.random() - 0.5) * 5,
                     40.41668 + (Math.random() - 0.5) * 5
                 ],
-                zoom: 11 + Math.round(Math.random() * 5),
-                essential: true,
-                run: true, // to actually run the flyTo method
-                debug: true
+                zoom: 11 + Math.round(Math.random() * 6),
+                pitch: 60 * Math.random(),
+                bearing: 360 * Math.random(),
+                essential: true
             });
         });
     </script>
