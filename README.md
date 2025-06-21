@@ -20,9 +20,9 @@ The MapLibre GL JS requests new tiles as the camera view changes during the anim
 
 As of today, this plugin offers the next features:
 
-* It highjacks the old methods and adds the pre-load functionality in a transparent way.
+* It hijacks the old methods and adds the pre-load functionality in a transparent way.
 * Full final scenario preload
-* Full inbetween animation scenarios preload
+* Full in-between animation scenarios preload
 * Pitch & bearing management
 * Limit the amount of server requests, lowering the priority of tiles at the viewport border if needed
 * Cancelling requests management to avoid un-needed tiles if the movement has ended or new interactions are detected
@@ -75,7 +75,7 @@ Some notes on the side effects of the common options of those functions:
 
 * **v 1.0.0**
   * [Feature] Fully rewritten
-  * [Feature] Full support for inbetween animation frames scenarios
+  * [Feature] Full support for in-between animation frames scenarios
   * [Feature] Full support of actual `flyTo` camera path during animation
   * [Feature] Pitch and bearing are taken into account for each frame
   * [Feature] The higher the pitch, the lower priority is given to far tiles
