@@ -25,7 +25,7 @@ As of today, this plugin offers the next features:
 * Full in-between animation scenarios preload
 * Pitch & bearing management
 * Limit the amount of server requests, lowering the priority of tiles at the viewport border if needed
-* Cancelling requests management to avoid un-needed tiles if the movement has ended or new interactions are detected
+* Cancelling pending requests if the movement has ended or new interactions are detected
 
 ## How to
 
