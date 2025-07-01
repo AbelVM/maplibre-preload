@@ -41,10 +41,10 @@ class MaplibrePreload {
                 'bearing': this.map.getBearing(),
                 'pitch': this.map.getPitch()
             },
-            tc = options.center || source.center,
-            targetCenter = (!!tc.lng) ? tc : { 'lng': tc[0], 'lat': tc[1] },
+            tc = options.center || start.center,
+            endCenter = (!!tc.lng) ? tc : { 'lng': tc[0], 'lat': tc[1] },
             end = {
-                'center': targetCenter,
+                'center': endCenter,
                 'zoom': options.zoom !== undefined ? options.zoom : start.zoom,
                 'bearing': options.bearing !== undefined ? options.bearing : start.bearing,
                 'pitch': options.pitch !== undefined ? options.pitch : start.pitch
@@ -96,37 +96,37 @@ class MaplibrePreload {
         await this._preloadTilesInternal(tileRequests);
     }
 
-    _sampleFlyToPath(source, target, options) {
+    _sampleFlyToPath(start, end, options) {
         return this.flyToFrames(options);
     }
 
-    _samplePanToPath(source, target, options) {
+    _samplePanToPath(start, end, options) {
         const
             totalFrames = Math.ceil((this.duration / 1000) * this.fps),
-            samples = [target];
+            samples = [end];
         for (let i = 1; i < totalFrames; i++) {
             const t = i / totalFrames;
             samples.push({
-                'center': this._interpolateLngLatLinear(source.center, target.center, t),
-                'zoom': source.zoom,
-                'bearing': source.bearing,
-                'pitch': source.pitch
+                'center': this._interpolateLngLatLinear(start.center, end.center, t),
+                'zoom': start.zoom,
+                'bearing': start.bearing,
+                'pitch': start.pitch
             });
         }
         return samples;
     }
 
-    _sampleEaseToPath(source, target, options) {
+    _sampleEaseToPath(start, end, options) {
         const
             totalFrames = Math.ceil((this.duration / 1000) * this.fps),
-            samples = [target];
+            samples = [end];
         for (let i = 1; i < totalFrames; i++) {
             const t = i / totalFrames;
             samples.push({
-                'center': this._interpolateLngLatLinear(source.center, target.center, t),
-                'zoom': this._interpolateLinear(source.zoom, target.zoom, t),
-                'bearing': this._interpolateLinear(source.bearing, target.bearing, t),
-                'pitch': this._interpolateLinear(source.pitch, target.pitch, t)
+                'center': this._interpolateLngLatLinear(start.center, end.center, t),
+                'zoom': this._interpolateLinear(start.zoom, end.zoom, t),
+                'bearing': this._interpolateLinear(start.bearing, end.bearing, t),
+                'pitch': this._interpolateLinear(start.pitch, end.pitch, t)
             });
         }
         return samples;
