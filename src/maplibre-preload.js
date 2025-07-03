@@ -5,9 +5,19 @@ class MaplibrePreload {
         this.progressCallback = options.progressCallback || null;
         this.burstLimit = options.burstLimit || 200;
         this.async = (options.hasOwnProperty('async') && !options.async) ? false : true;
+        this.useTile = (options.hasOwnProperty('useTile') && !options.useTile) ? false : true;
         this.controller = {};
         this._patchMoveMethods();
+        map._captureTileClass= e => {
+            if (e.tile && e.tile.tileID) {
+                map.Tile = e.tile.constructor;
+                map.OverscaledTileID = e.tile.tileID.constructor;
+                map.off('sourcedata', map._captureTileClass);
+            }
+        }
+        if (this.useTile) map.on('sourcedata',map._captureTileClass);
     }
+    
 
     _patchMoveMethods() {
         const methods = ['flyTo', 'panTo', 'easeTo', 'zoomTo'];
@@ -19,16 +29,16 @@ class MaplibrePreload {
                     delete this.controller[a];
                 });
                 if (this.async) {
-                    await this.preloadTilesForMove(method, options);
+                    await this._preloadTilesForMove(method, options);
                 } else {
-                    this.preloadTilesForMove(method, options);
+                    this._preloadTilesForMove(method, options);
                 }
                 return original(options);
             };
         });
     }
 
-    async preloadTilesForMove(method, options) {
+    async _preloadTilesForMove(method, options) {
         if (options.hasOwnProperty('animate') && !options.animate) return true;
         this.duration = options.duration || 1000;
         this.padding = options.padding || 0;
@@ -59,6 +69,8 @@ class MaplibrePreload {
             samples = this._samplePanToPath(start, end, options);
         } else if (method === 'easeTo') {
             samples = this._sampleEaseToPath(start, end, options);
+        } else if (method === 'zoomTo') {
+            samples = this._sampleZoomToPath(start, end, options);
         } else {
             samples = [end];
         }
@@ -97,7 +109,7 @@ class MaplibrePreload {
     }
 
     _sampleFlyToPath(start, end, options) {
-        return this.flyToFrames(options);
+        return this._flyToFrames(options);
     }
 
     _samplePanToPath(start, end, options) {
@@ -127,6 +139,22 @@ class MaplibrePreload {
                 'zoom': this._interpolateLinear(start.zoom, end.zoom, t),
                 'bearing': this._interpolateLinear(start.bearing, end.bearing, t),
                 'pitch': this._interpolateLinear(start.pitch, end.pitch, t)
+            });
+        }
+        return samples;
+    }
+
+    _sampleZoomToPath(start, end, options) {
+        const
+            totalFrames = Math.ceil((this.duration / 1000) * this.fps),
+            samples = [end];
+        for (let i = 1; i < totalFrames; i++) {
+            const t = i / totalFrames;
+            samples.push({
+                'center': start.center,
+                'zoom': this._interpolateLinear(start.zoom, end.zoom, t),
+                'bearing': start.bearing,
+                'pitch': start.pitch
             });
         }
         return samples;
@@ -184,63 +212,80 @@ class MaplibrePreload {
 
     async _preloadTilesInternal(tileRequests) {
 
-        return new Promise(async (resolve, reject) => {
-            const
-                map = this.map,
-                uuid = this._uuid(),
-                timeoutId = setTimeout(() => {
-                    this.controller[uuid].abort('timeout');
-                    cleanup();
-                    resolve();
-                }, this.duration * 5),
-                cleanup = () => {
-                    delete this.controller[uuid];
-                    clearTimeout(timeoutId);
-                },
-                fetchArray = [];
-            let
-                loaded = 0,
-                failed = 0;
-            this.controller[uuid] = new AbortController();
-
+        if(this.useTile){
+            const tileArray = [];
             for (const [sourceId, tileSet] of Object.entries(tileRequests)) {
-                const source = map.getSource(sourceId);
-                for (const tile of [...tileSet]) {
-                    const
-                        [z, x, y] = tile.split('|'),
-                        url = source.tiles[0].replace('{z}', z).replace('{x}', x).replace('{y}', y);
-                    try {
-                        fetchArray.push(fetch(url, { 'signal': this.controller[uuid].signal }));
-                    } catch (e) {
-                        console.log(e);
-                    }
-
+                const 
+                    source = map.getSource(sourceId),
+                    tileSize = source.tileSize;
+                for (const t of [...tileSet]) {
+                    const 
+                        [z, x, y] = t.split('|'),
+                        tileID = new map.OverscaledTileID(z, 0, z, x, y),
+                        tile = new map.Tile(tileID, tileSize);
+                    tileArray.push(source.loadTile(tile));
                 }
             }
-            try {
-                const response = await Promise.all(fetchArray);
-                response.forEach(r => {
-                    if (!r.ok) {
-                        failed++;
-                    } else {
-                        loaded++;
+            return Promise.all(tileArray);
+        }else{
+            return new Promise(async (resolve, reject) => {
+                const
+                    map = this.map,
+                    uuid = this._uuid(),
+                    timeoutId = setTimeout(() => {
+                        this.controller[uuid].abort('timeout');
+                        cleanup();
+                        resolve();
+                    }, this.duration * 5),
+                    cleanup = () => {
+                        delete this.controller[uuid];
+                        clearTimeout(timeoutId);
+                    },
+                    fetchArray = [];
+                let
+                    loaded = 0,
+                    failed = 0;
+                this.controller[uuid] = new AbortController();
+
+                for (const [sourceId, tileSet] of Object.entries(tileRequests)) {
+                    const source = map.getSource(sourceId);
+                    for (const tile of [...tileSet]) {
+                        const
+                            [z, x, y] = tile.split('|'),
+                            url = source.tiles[0].replace('{z}', z).replace('{x}', x).replace('{y}', y);
+                        try {
+                            fetchArray.push(fetch(url, { 'signal': this.controller[uuid].signal }));
+                        } catch (e) {
+                            console.log(e);
+                        }
+
                     }
-                    if (this.progressCallback) {
-                        this.progressCallback({ loaded, total: fetchArray.length, failed });
-                    }
-                });
-                cleanup();
-                resolve();
-            } catch (e) {
-                console.log(e);
-                cleanup();
-                resolve();
-            }
-        });
+                }
+                try {
+                    const response = await Promise.all(fetchArray);
+                    response.forEach(r => {
+                        if (!r.ok) {
+                            failed++;
+                        } else {
+                            loaded++;
+                        }
+                        if (this.progressCallback) {
+                            this.progressCallback({ loaded, total: fetchArray.length, failed });
+                        }
+                    });
+                    cleanup();
+                    resolve();
+                } catch (e) {
+                    console.log(e);
+                    cleanup();
+                    resolve();
+                }
+            });
+        }
     }
 
-    flyToFrames(options) {
-        // ported from https://github.com/maplibre/maplibre-gl-js/blob/b7cf56df3605c4ce6f68df216ea1c6d69790c385/src/ui/camera.ts#L1379
+    _flyToFrames(options) {
+        // ported from https://github.com/maplibre/maplibre-gl-js/blob/b7cf56df3605c4ce6f68df216ea1c6d69790c385/src/ui/camera.ts_L1379
         const
             map = this.map,
             totalFrames = Math.ceil((this.duration / 1000) * this.fps),

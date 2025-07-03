@@ -20,24 +20,23 @@ The MapLibre GL JS requests new tiles as the camera view changes during the anim
 
 As of today, this plugin offers the next features:
 
+* It takes advantage of MapLibre internal tiles life-cycle management
 * It hijacks the old methods and adds the pre-load functionality in a transparent way.
 * It automatically detects the tiled sources and apply the preload to all of them
 * Full final scenario preload
 * Full in-between animation scenarios preload
 * Pitch & bearing management
-* Limit the amount of server requests, lowering the priority of tiles at the viewport border if needed
+* Limit the amount of server requests, lowering the priority of tiles at the viewport borders if needed (those tiles won't be cached and will be requested by MapLibre as it needs them)
 * Cancelling pending requests if the movement has ended or new interactions are detected
 
 ## How to
 
 First, just add the dependency `after` MapLibreGL JS.
 
-Then, load the plugin in the `onload` event of your map
+Then, just load the plugin after instantiating your map and it will manage everything in a transparent way
 
 ```javascript
-map.on('load', () => {
-  new MaplibrePreload(map, options);
-});
+new MaplibrePreload(map, options);
 
 ```
 
@@ -45,25 +44,28 @@ Available options on instantiating the plugin:
 
 | Parameter | Type | Default | Description |
 |---|---|---|---|
-| progressCallback | function({ loaded, total, failed }) | null | Callback function to be called per tile preload, mainly for debugging purposes |
+| progressCallback | function({ loaded, total, failed }) | null | Callback function to be called per tile preload, mainly for debugging purposes. If `useTile` is set to `true`, this parameter is ignored |
 | async | boolean | true | Tells the plugin whether to wait for the full preload before triggering the movement|
 | burstLimit | integer | 200 | Soft limit for the number of tiles preloaded during the animation |
+| useTile | boolean | true | To use internal MapLibre tiles management, or fallback to `fetch` |
 
 Example:
 
 ```javascript
-map.on('load', () => {
-    new MaplibrePreload(map, {
-        progressCallback: ({ loaded, total, failed }) => {
-            console.log(`Preloading tiles: ${loaded}/${total} loaded, ${failed} failed`);
-        },
-        burstLimit: 250
-    });
-});
+  const map = new maplibregl.Map(mapOptions);
+
+  new MaplibrePreload(map, {
+      progressCallback: ({ loaded, total, failed }) => {
+          console.log(`Preloading tiles: ${loaded}/${total} loaded, ${failed} failed`);
+      },
+      async: true,
+      burstLimit: 250,
+      useTile: true
+  });
 
 ```
 
-Then, you can call `panTo`, `zoomTo`, `easeTo` or `flyTo` in the old way, and the tiles will pre preloaded without further coding.
+Then, you can call `panTo`, `zoomTo`, `easeTo` or `flyTo` in the old way, and the tiles will be pre preloaded without further coding.
 
 Some notes on the side effects of the common options of those functions:
 
@@ -74,6 +76,9 @@ Some notes on the side effects of the common options of those functions:
 
 ### Changelog
 
+* **v 1.1.0**
+  * [Feature] `Tile` class hijacked! We can choose whether use this or classic `fetch` (thanks to hack by [wayofthefuture](https://github.com/wayofthefuture))
+  * [Fix] Missing path for `zoomTo`
 * **v 1.0.0**
   * [Feature] Fully rewritten
   * [Feature] Full support for in-between animation frames scenarios
@@ -96,4 +101,5 @@ Some notes on the side effects of the common options of those functions:
 
 ### To Do
 
-* Because of [this issue](https://github.com/maplibre/maplibre-gl-js/issues/6041), there is no way to take advantage of the own MapLibre GL JS tiles and cache management, so I needed to fall back to `fetch` logic and rely on the browser cache.
+* ~~Because of [this issue](https://github.com/maplibre/maplibre-gl-js/issues/6041), there is no way to take advantage of the own MapLibre GL JS tiles and cache management, so I needed to fall back to `fetch` logic and rely on the browser cache.~~
+* Check whether TMS schema needs extra work

@@ -3,7 +3,7 @@
 
 <head>
     <meta charset="utf-8">
-    <title>MapLibre-preload 1.0.0</title>
+    <title>MapLibre-preload 1.1.0</title>
     <meta name="viewport" content="initial-scale=1,maximum-scale=1,user-scalable=no">
     <script src='https://unpkg.com/maplibre-gl@5.6.0/dist/maplibre-gl.js'></script>
     <script src='../src/maplibre-preload.js'></script>
@@ -53,13 +53,11 @@
             zoom: 14,
         });
 
-        map.on('load', () => {
-            new MaplibrePreload(map, {
-                progressCallback: ({ loaded, total, failed }) => {
-                    console.log(`Preloading tiles: ${loaded}/${total} loaded, ${failed} failed`);
-                },
-                burstLimit: 250
-            });
+        new MaplibrePreload(map, {
+            progressCallback: ({ loaded, total, failed }) => {
+                console.log(`Preloading tiles: ${loaded}/${total} loaded, ${failed} failed`);
+            },
+            burstLimit: 250
         });
 
         document.getElementById('fly').addEventListener('click', () => {
