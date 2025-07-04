@@ -20,7 +20,8 @@ The MapLibre GL JS requests new tiles as the camera view changes during the anim
 
 As of today, this plugin offers the next features:
 
-* It takes advantage of MapLibre internal tiles life-cycle management
+* It takes advantage of MapLibre internal tiles life-cycle management 
+* **custom protocols ([addProtocol](https://maplibre.org/maplibre-gl-js/docs/API/functions/addProtocol/)) supported!**
 * It hijacks the old methods and adds the pre-load functionality in a transparent way.
 * It automatically detects the tiled sources and apply the preload to all of them
 * Full final scenario preload
