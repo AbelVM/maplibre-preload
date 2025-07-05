@@ -8,14 +8,14 @@ class MaplibrePreload {
         this.useTile = (options.hasOwnProperty('useTile') && !options.useTile) ? false : true;
         this.controller = {};
         this._patchMoveMethods();
-        map._captureTileClass= e => {
+        this.map._captureTileClass= e => {
             if (e.tile && e.tile.tileID) {
-                map.Tile = e.tile.constructor;
-                map.OverscaledTileID = e.tile.tileID.constructor;
-                map.off('sourcedata', map._captureTileClass);
+                e.target.Tile = e.tile.constructor;
+                e.target.OverscaledTileID = e.tile.tileID.constructor;
+                e.target.off('sourcedata', e.target._captureTileClass);
             }
         }
-        if (this.useTile) map.on('sourcedata',map._captureTileClass);
+        if (this.useTile) this.map.on('sourcedata', this.map._captureTileClass);
     }
     
 
@@ -59,8 +59,6 @@ class MaplibrePreload {
                 'bearing': options.bearing !== undefined ? options.bearing : start.bearing,
                 'pitch': options.pitch !== undefined ? options.pitch : start.pitch
             };
-
-        this._start = start;
 
         let samples;
         if (method === 'flyTo') {
@@ -162,8 +160,8 @@ class MaplibrePreload {
 
     _getVisibleTilesPerSource({ center, zoom, bearing, pitch }, factor = 0) {
         const perSource = {};
-        for (const sourceId in map.style.sourceCaches) {
-            const sourceCache = map.style.sourceCaches[sourceId];
+        for (const sourceId in this.map.style.sourceCaches) {
+            const sourceCache = this.map.style.sourceCaches[sourceId];
             if (!sourceCache.used) continue;
             perSource[sourceId] = this._getVisibleTileRange(this.map.getSource(sourceId), { center, zoom, bearing, pitch }, factor).map(t => `${t[0]}|${t[1]}|${t[2]}`);
         }
@@ -216,13 +214,13 @@ class MaplibrePreload {
             const tileArray = [];
             for (const [sourceId, tileSet] of Object.entries(tileRequests)) {
                 const 
-                    source = map.getSource(sourceId),
+                    source = this.map.getSource(sourceId),
                     tileSize = source.tileSize;
                 for (const t of [...tileSet]) {
                     const 
                         [z, x, y] = t.split('|'),
-                        tileID = new map.OverscaledTileID(z, 0, z, x, y),
-                        tile = new map.Tile(tileID, tileSize);
+                        tileID = new this.map.OverscaledTileID(z, 0, z, x, y),
+                        tile = new this.map.Tile(tileID, tileSize);
                     tileArray.push(source.loadTile(tile));
                 }
             }
@@ -230,7 +228,6 @@ class MaplibrePreload {
         }else{
             return new Promise(async (resolve, reject) => {
                 const
-                    map = this.map,
                     uuid = this._uuid(),
                     timeoutId = setTimeout(() => {
                         this.controller[uuid].abort('timeout');
@@ -248,7 +245,7 @@ class MaplibrePreload {
                 this.controller[uuid] = new AbortController();
 
                 for (const [sourceId, tileSet] of Object.entries(tileRequests)) {
-                    const source = map.getSource(sourceId);
+                    const source = this.map.getSource(sourceId);
                     for (const tile of [...tileSet]) {
                         const
                             [z, x, y] = tile.split('|'),
@@ -287,9 +284,8 @@ class MaplibrePreload {
     _flyToFrames(options) {
         // ported from https://github.com/maplibre/maplibre-gl-js/blob/b7cf56df3605c4ce6f68df216ea1c6d69790c385/src/ui/camera.ts_L1379
         const
-            map = this.map,
             totalFrames = Math.ceil((this.duration / 1000) * this.fps),
-            tr = map._getTransformForUpdate(),
+            tr = this.map._getTransformForUpdate(),
             startCenter = tr.center,
             startZoom = tr.zoom,
             startBearing = tr.bearing,
@@ -297,11 +293,11 @@ class MaplibrePreload {
             startRoll = tr.roll,
             startPadding = tr.padding,
             center = (!!options.center.lng) ? options.center : { lng: options.center[0], lat: options.center[1] },
-            bearing = 'bearing' in options ? map._normalizeBearing(options.bearing, startBearing) : startBearing,
-            pitch = 'pitch' in options ? +options.pitch : startPitch,
-            roll = 'roll' in options ? map._normalizeBearing(options.roll, startRoll) : startRoll,
+            bearing = 'bearing' in options ? this.map._normalizeBearing(options.bearing, startBearing) : startBearing,
+            pitch = 'pitch' in options ? + options.pitch : startPitch,
+            roll = 'roll' in options ? this.map._normalizeBearing(options.roll, startRoll) : startRoll,
             padding = 'padding' in options ? options.padding : startPadding,
-            flyToHandler = map.cameraHelper.handleFlyTo(tr, {
+            flyToHandler = this.map.cameraHelper.handleFlyTo(tr, {
                 bearing,
                 pitch,
                 roll,
