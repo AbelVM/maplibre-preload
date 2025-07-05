@@ -46,14 +46,14 @@
     <button id="fly">precached Fly</button>
     <script>
 
-        const mymap = new maplibregl.Map({
+        const map = new maplibregl.Map({
             container: 'map',
             style: 'https://tiles.openfreemap.org/styles/liberty',
             center: [-3.703793, 40.416687],
             zoom: 14,
         });
 
-        new MaplibrePreload(mymap, {
+        new MaplibrePreload(map, {
             progressCallback: ({ loaded, total, failed }) => {
                 console.log(`Preloading tiles: ${loaded}/${total} loaded, ${failed} failed`);
             },
@@ -61,7 +61,7 @@
         });
 
         document.getElementById('fly').addEventListener('click', () => {
-            mymap.flyTo({
+            map.flyTo({
                 center: [
                     -3.703793 + (Math.random() - 0.5) * 5,
                     40.41668 + (Math.random() - 0.5) * 5
