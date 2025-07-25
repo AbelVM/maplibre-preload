@@ -224,7 +224,7 @@ class MaplibrePreload {
                     tileArray.push(source.loadTile(tile));
                 }
             }
-            return Promise.all(tileArray);
+            return Promise.allSettled(tileArray);
         }else{
             return new Promise(async (resolve, reject) => {
                 const
@@ -259,7 +259,7 @@ class MaplibrePreload {
                     }
                 }
                 try {
-                    const response = await Promise.all(fetchArray);
+                    const response = await Promise.allSettled(fetchArray);
                     response.forEach(r => {
                         if (!r.ok) {
                             failed++;
